@@ -1235,7 +1235,23 @@ strong { font-weight: 600; }
   .float-call { bottom: 20px; left: 16px; width: 48px; height: 48px; }
   .float-wa  { bottom: 20px; right: 16px; width: 48px; height: 48px; }
 }
+/* ── Push lang + hamburger to the far right on all screen sizes ── */
+.nav-right-controls {
+  margin-left: auto;
+}
 
+/* ── Show hamburger on tablets (hide desktop nav + CTA) ── */
+@media (max-width: 1024px) {
+  .nav-links {
+    display: none;
+  }
+  .nav-cta {
+    display: none;
+  }
+  .hamburger {
+    display: flex;
+  }
+}
    /* navbar brand rmains on Arabic language */
     [dir="rtl"] .nav-brand {
   direction: ltr;
