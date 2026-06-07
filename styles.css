@@ -697,7 +697,24 @@ strong { font-weight: 600; }
   font-size: 11px;
   top: 2px;
 }
-
+.service-book{
+   background-color: var(--blue);
+  padding: -2px;
+  width: 78px;
+  height: 33px;
+  border-radius: 20px;
+  color: white;
+  border: 1px solid rgba(0, 0, 0, 0.37);
+  transition: 0.2s ease;
+  font-size: 1rem;
+  font-weight: 550;
+  margin: 16px 0 0 0;
+}
+.service-book:hover{
+  background-color: #1973da;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+}
 /* ===== WHY CHOOSE US ===== */
 .why-us {
   background: var(--white);
@@ -1011,6 +1028,28 @@ strong { font-weight: 600; }
   color: var(--text-mid);
   line-height: 1.6;
 }
+/* Reade more button  */
+.read-more-btn{
+  /* position: absolute; */
+  text-align:center; 
+  display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      display: flex;
+      justify-content: center;
+      width: 300px;
+      margin: 40px auto 0 auto;
+      padding: 14px 32px;
+      background: #fff;
+      color: #0A2540;
+      border: 2px solid #e2e8f0;
+      border-radius: 50px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
 
 /* ===== FOOTER ===== */
 .footer {
@@ -1196,3 +1235,171 @@ strong { font-weight: 600; }
   .float-call { bottom: 20px; left: 16px; width: 48px; height: 48px; }
   .float-wa  { bottom: 20px; right: 16px; width: 48px; height: 48px; }
 }
+
+   /* navbar brand rmains on Arabic language */
+    [dir="rtl"] .nav-brand {
+  direction: ltr;
+  flex-direction: row;
+}
+
+[dir="rtl"] .nav-brand .brand-text {
+  text-align: right;
+}
+
+    /* ── Arabic font override ── */
+    [lang="ar"] body,
+    [lang="ar"] h1, [lang="ar"] h2, [lang="ar"] h3, [lang="ar"] h4,
+    [lang="ar"] p, [lang="ar"] a, [lang="ar"] span, [lang="ar"] li,
+    [lang="ar"] button {
+      font-family: 'Cairo', sans-serif;
+    }
+
+    /* ── RTL layout tweaks ── */
+
+    /*
+      NAVBAR: Do NOT reverse the flex container.
+      The nav-container stays LTR so:
+        [Logo | nav-links | nav-cta | lang+hamburger]
+      remains in that exact left-to-right order in both EN and AR.
+      Only text alignment and internal element direction changes for AR.
+    */
+    [dir="rtl"] .nav-container {
+      /* intentionally NOT row-reverse — keeps logo on left always */
+      direction: ltr; /* force the navbar row itself to stay LTR */
+    }
+
+    /* Nav link text can be RTL inside their cells */
+    [dir="rtl"] .nav-link {
+      direction: rtl;
+    }
+
+    /* nav-brand: logo sphere always first (left), brand text always after (right of logo) */
+    [dir="rtl"] .nav-brand {
+      direction: ltr; /* keeps .logo-sphere left of .brand-text */
+    }
+
+    [dir="rtl"] .why-layout {
+      flex-direction: row-reverse;
+    }
+
+    [dir="rtl"] .steps-grid {
+      direction: rtl;
+    }
+
+    [dir="rtl"] .step-arrow svg {
+      transform: scaleX(-1);
+    }
+
+    [dir="rtl"] .svc-list li {
+      text-align: right;
+    }
+
+    [dir="rtl"] .footer-grid {
+      direction: rtl;
+      text-align: right;
+    }
+
+    [dir="rtl"] .footer-contacts {
+      align-items: flex-end;
+    }
+
+    [dir="rtl"] .footer-contact-link {
+      flex-direction: row-reverse;
+    }
+
+    /* Reviews scroll wrapper has dir="ltr" hardcoded in HTML so no CSS override needed */
+    /* Hide scrollbar on the reviews wrapper (scrollLeft is used for JS scroll) */
+    .reviews-scroll-wrap::-webkit-scrollbar { display: none; }
+
+    [dir="rtl"] .hero-btns {
+      flex-direction: row-reverse;
+    }
+
+    [dir="rtl"] .why-items {
+      direction: rtl;
+    }
+
+    [dir="rtl"] .why-item {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    [dir="rtl"] .contact-box {
+      direction: rtl;
+      text-align: right;
+    }
+
+    [dir="rtl"] .contact-box-header {
+      flex-direction: row-reverse;
+    }
+
+    [dir="rtl"] .mob-cta {
+      flex-direction: row-reverse;
+    }
+
+    /* Lang dropdown */
+    .lang-switcher { position: relative; }
+    .lang-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .lang-btn:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .lang-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #0f2d50;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      min-width: 145px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      z-index: 9999;
+    }
+    [dir="rtl"] .lang-dropdown {
+      right: auto;
+      left: 0;
+    }
+    .lang-dropdown.open { display: block; }
+    .lang-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.8);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+    .lang-option:hover { background: rgba(255,255,255,0.09); color: #fff; }
+    .lang-option.active { color: #42A5F5; background: rgba(66,165,245,0.1); font-weight: 700; }
+
+    /* Ensure lang switcher always shows in navbar on all sizes */
+    .nav-right-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
