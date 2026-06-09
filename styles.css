@@ -698,6 +698,9 @@ strong { font-weight: 600; }
   top: 2px;
 }
 .service-book{
+       display: flex;
+    justify-content: center;
+    align-items: center;
    background-color: var(--blue);
   padding: -2px;
   width: 78px;
