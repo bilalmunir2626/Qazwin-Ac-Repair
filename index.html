@@ -948,207 +948,222 @@ target="_blank" rel="noopener noreferrer"  aria-label="Read more reviews on Goog
        ===================================================== -->
   <script>
   (function () {
-    'use strict';
+  'use strict';
 
-    /* ─────────────────────────────────────────────
-       1. LANGUAGE SYSTEM
-       ───────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────
+     1. LANGUAGE SYSTEM
+     ───────────────────────────────────────────── */
 
-    var STORAGE_KEY = 'qazwin_lang';
+  var STORAGE_KEY = 'qazwin_lang';
 
-    /* ─────────────────────────────────────────────
-       TESTIMONIALS AUTO-SCROLL — defined first so
-       applyLanguage() can call restartReviewScroll()
-       Uses scrollLeft on the wrapper — NOT translateX.
-       scrollLeft is immune to RTL overflow-clipping.
-       The wrapper has dir="ltr" hardcoded in HTML so
-       scrollLeft always increments left→right regardless
-       of the page's dir="rtl" setting.
-       ───────────────────────────────────────────── */
-    var reviewWrap      = document.querySelector('.reviews-scroll-wrap');
-    var reviewsTrack    = document.getElementById('reviewsTrack');
-    var reviewScrollRAF = null;
-    var reviewPaused    = false;
-    var REVIEW_SPEED    = 0.3; // px per frame
+  /* ─────────────────────────────────────────────
+     TESTIMONIALS AUTO-SCROLL
+     ───────────────────────────────────────────── */
+  var reviewWrap      = document.querySelector('.reviews-scroll-wrap');
+  var reviewsTrack    = document.getElementById('reviewsTrack');
+  var reviewScrollRAF = null;
+  var reviewPaused    = false;
+  var REVIEW_SPEED    = 0.3;
 
-    function getHalfTrackWidth() {
-      var cards = reviewsTrack.querySelectorAll('.review-card');
-      var count = Math.min(5, cards.length);
-      var total = 0;
-      for (var i = 0; i < count; i++) {
-        var s = getComputedStyle(cards[i]);
-        total += cards[i].offsetWidth
-          + parseFloat(s.marginLeft  || 0)
-          + parseFloat(s.marginRight || 0);
+  function getHalfTrackWidth() {
+    var cards = reviewsTrack.querySelectorAll('.review-card');
+    var count = Math.min(5, cards.length);
+    var total = 0;
+    for (var i = 0; i < count; i++) {
+      var s = getComputedStyle(cards[i]);
+      total += cards[i].offsetWidth
+        + parseFloat(s.marginLeft  || 0)
+        + parseFloat(s.marginRight || 0);
+    }
+    return total || (reviewsTrack.scrollWidth / 2);
+  }
+
+  function scrollReviews() {
+    if (!reviewPaused && reviewWrap) {
+      reviewWrap.scrollLeft += REVIEW_SPEED;
+      var half = getHalfTrackWidth();
+      if (reviewWrap.scrollLeft >= half) {
+        reviewWrap.scrollLeft = 0;
       }
-      return total || (reviewsTrack.scrollWidth / 2);
     }
+    reviewScrollRAF = requestAnimationFrame(scrollReviews);
+  }
 
-    function scrollReviews() {
-      if (!reviewPaused && reviewWrap) {
-        reviewWrap.scrollLeft += REVIEW_SPEED;
-        var half = getHalfTrackWidth();
-        if (reviewWrap.scrollLeft >= half) {
-          reviewWrap.scrollLeft = 0;
-        }
-      }
-      reviewScrollRAF = requestAnimationFrame(scrollReviews);
-    }
+  function restartReviewScroll() {
+    if (reviewScrollRAF) cancelAnimationFrame(reviewScrollRAF);
+    if (reviewWrap) reviewWrap.scrollLeft = 0;
+    reviewScrollRAF = requestAnimationFrame(scrollReviews);
+  }
 
-    function restartReviewScroll() {
-      if (reviewScrollRAF) cancelAnimationFrame(reviewScrollRAF);
-      if (reviewWrap) reviewWrap.scrollLeft = 0;
-      reviewScrollRAF = requestAnimationFrame(scrollReviews);
-    }
+  if (reviewWrap) {
+    reviewWrap.addEventListener('mouseenter', function () { reviewPaused = true; });
+    reviewWrap.addEventListener('mouseleave', function () { reviewPaused = false; });
+    reviewWrap.addEventListener('touchstart', function () { reviewPaused = true; },  { passive: true });
+    reviewWrap.addEventListener('touchend',   function () { reviewPaused = false; }, { passive: true });
+  }
 
-    // Pause on hover / touch
-    if (reviewWrap) {
-      reviewWrap.addEventListener('mouseenter', function () { reviewPaused = true; });
-      reviewWrap.addEventListener('mouseleave', function () { reviewPaused = false; });
-      reviewWrap.addEventListener('touchstart', function () { reviewPaused = true; },  { passive: true });
-      reviewWrap.addEventListener('touchend',   function () { reviewPaused = false; }, { passive: true });
-    }
+  /* ─────────────────────────────────────────────
+     2. APPLY LANGUAGE
+     ───────────────────────────────────────────── */
 
-    // All translatable elements use data-en / data-ar attributes.
-    // For innerHTML elements (those with HTML tags inside), we swap innerHTML.
-    // For simple text, we swap textContent.
+  function applyLanguage(lang) {
+    var isAr = lang === 'ar';
+    var html = document.getElementById('htmlRoot');
 
-    function applyLanguage(lang) {
-      var isAr = lang === 'ar';
-      var html = document.getElementById('htmlRoot');
+    html.setAttribute('lang', isAr ? 'ar' : 'en');
+    html.setAttribute('dir',  isAr ? 'rtl' : 'ltr');
 
-      // Update html element attributes for SEO + RTL
-      html.setAttribute('lang', isAr ? 'ar' : 'en');
-      html.setAttribute('dir', isAr ? 'rtl' : 'ltr');
-
-      // Update all data-en / data-ar elements
-      var allEls = document.querySelectorAll('[data-en], [data-ar]');
-      allEls.forEach(function (el) {
-        var val = isAr ? el.getAttribute('data-ar') : el.getAttribute('data-en');
-        if (!val) return;
-
-        // Use innerHTML for elements that contain HTML tags
-        if (val.indexOf('<') !== -1) {
-          el.innerHTML = val;
-        } else {
-          el.textContent = val;
-        }
-      });
-
-      // Update <html lang> and <meta name="language">
-      var metaLang = document.querySelector('meta[name="language"]');
-      if (metaLang) metaLang.setAttribute('content', isAr ? 'Arabic' : 'English');
-
-      // Update page title & meta description for bilingual SEO
-      if (isAr) {
-        document.title = 'قزوين لتصليح المكيفات الكويت | أفضل خدمة تصليح مكيفات |66972929';
-        var metaDesc = document.querySelector('meta[name="description"]');
-        if (metaDesc) metaDesc.setAttribute('content', 'قزوين لتصليح المكيفات في الكويت — أكثر خدمة تصليح مكيفات موثوقة. تصليح مكيفات سبليت ومركزية وشحن غاز وصيانة في نفس اليوم. اتصل66972929. نخدم جميع محافظات الكويت.');
+    var allEls = document.querySelectorAll('[data-en], [data-ar]');
+    allEls.forEach(function (el) {
+      var val = isAr ? el.getAttribute('data-ar') : el.getAttribute('data-en');
+      if (!val) return;
+      if (val.indexOf('<') !== -1) {
+        el.innerHTML = val;
       } else {
-        document.title = 'Qazwin AC Repair Kuwait | Best AC Repair Service in Kuwait |66972929';
-        var metaDesc2 = document.querySelector('meta[name="description"]');
-        if (metaDesc2) metaDesc2.setAttribute('content', 'Qazwin AC Repair Kuwait — Kuwait\'s #1 trusted AC repair service. Same-day split AC repair, central AC service, gas refill & maintenance. Call66972929. Serving all Kuwait governorates.');
-      }
-
-      // Update lang switcher UI
-      var label = document.getElementById('langLabel');
-      if (label) label.textContent = isAr ? 'AR' : 'EN';
-
-      var options = document.querySelectorAll('.lang-option');
-      options.forEach(function (opt) {
-        opt.classList.toggle('active', opt.getAttribute('data-lang') === lang);
-      });
-
-      // Reviews wrapper has dir="ltr" hardcoded in HTML — no JS override needed.
-      // Just restart the scroll so position resets cleanly after language switch.
-      restartReviewScroll();
-
-      // Save to localStorage
-      try {
-        localStorage.setItem(STORAGE_KEY, lang);
-      } catch (e) {}
-    }
-
-    /* ─────────────────────────────────────────────
-       2. LANGUAGE DROPDOWN TOGGLE
-       ───────────────────────────────────────────── */
-    var langBtn      = document.getElementById('langBtn');
-    var langDropdown = document.getElementById('langDropdown');
-
-    function closeLangDropdown() {
-      langDropdown.classList.remove('open');
-      langBtn.setAttribute('aria-expanded', 'false');
-    }
-
-    function openLangDropdown() {
-      langDropdown.classList.add('open');
-      langBtn.setAttribute('aria-expanded', 'true');
-    }
-
-    langBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (langDropdown.classList.contains('open')) {
-        closeLangDropdown();
-      } else {
-        openLangDropdown();
+        el.textContent = val;
       }
     });
 
-    // Language option click
-    document.querySelectorAll('.lang-option').forEach(function (opt) {
-      opt.addEventListener('click', function () {
-        applyLanguage(opt.getAttribute('data-lang'));
-        closeLangDropdown();
-      });
+    var metaLang = document.querySelector('meta[name="language"]');
+    if (metaLang) metaLang.setAttribute('content', isAr ? 'Arabic' : 'English');
+
+    if (isAr) {
+      document.title = 'قزوين لتصليح المكيفات الكويت | أفضل خدمة تصليح مكيفات | 97904179';
+      var metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', 'قزوين لتصليح المكيفات في الكويت — أكثر خدمة تصليح مكيفات موثوقة. تصليح مكيفات سبليت ومركزية وشحن غاز وصيانة في نفس اليوم. اتصل 97904179. نخدم جميع محافظات الكويت.');
+    } else {
+      document.title = 'Qazwin AC Repair Kuwait | Best AC Repair Service in Kuwait | 97904179';
+      var metaDesc2 = document.querySelector('meta[name="description"]');
+      if (metaDesc2) metaDesc2.setAttribute('content', "Qazwin AC Repair Kuwait — Kuwait's #1 trusted AC repair service. Same-day split AC repair, central AC service, gas refill & maintenance. Call 97904179. Serving all Kuwait governorates.");
+    }
+
+    // Update canonical URL for bilingual SEO
+    var canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      canonical.setAttribute('href', 'https://qazwinacrepair.com' + (isAr ? '/ar' : '/'));
+    }
+
+    // Update lang switcher UI
+    var label = document.getElementById('langLabel');
+    if (label) label.textContent = isAr ? 'AR' : 'EN';
+
+    var options = document.querySelectorAll('.lang-option');
+    options.forEach(function (opt) {
+      opt.classList.toggle('active', opt.getAttribute('data-lang') === lang);
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function (e) {
-      if (!document.getElementById('langSwitcher').contains(e.target)) {
-        closeLangDropdown();
-      }
-    });
-
-    // Close dropdown on Escape
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeLangDropdown();
-    });
-
-  
-    /* ─────────────────────────────────────────────
-       4. NAVBAR SCROLL EFFECT
-       ───────────────────────────────────────────── */
-    var navbar = document.getElementById('navbar');
-    var lastScrollY = 0;
-
-    window.addEventListener('scroll', function () {
-      var scrollY = window.scrollY;
-      navbar.classList.toggle('scrolled', scrollY > 50);
-      lastScrollY = scrollY;
-    }, { passive: true });
-
-    /* ─────────────────────────────────────────────
-       6. TICKER MARQUEE
-       ───────────────────────────────────────────── */
-    // The ticker uses CSS animation — handled by styles.css
-
-    /* ─────────────────────────────────────────────
-       7. INIT — load saved language on page load
-       ───────────────────────────────────────────── */
-    var savedLang = 'en';
+    // Sync URL hash without triggering hashchange loop
     try {
-      savedLang = localStorage.getItem(STORAGE_KEY) || 'en';
+      var targetHash = '#/' + lang;
+      if (window.location.hash !== targetHash) {
+        history.replaceState(null, '', targetHash);
+      }
     } catch (e) {}
 
-    // Validate — only allow 'en' or 'ar'
-    if (savedLang !== 'en' && savedLang !== 'ar') savedLang = 'en';
+    // Save to localStorage
+    try {
+      localStorage.setItem(STORAGE_KEY, lang);
+    } catch (e) {}
 
-    applyLanguage(savedLang);
-
-    // Start review scroll after initial language is applied
     restartReviewScroll();
+  }
 
-  })();
+  /* ─────────────────────────────────────────────
+     3. LANGUAGE DROPDOWN TOGGLE
+     ───────────────────────────────────────────── */
+
+  var langBtn      = document.getElementById('langBtn');
+  var langDropdown = document.getElementById('langDropdown');
+
+  function closeLangDropdown() {
+    langDropdown.classList.remove('open');
+    langBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function openLangDropdown() {
+    langDropdown.classList.add('open');
+    langBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  langBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (langDropdown.classList.contains('open')) {
+      closeLangDropdown();
+    } else {
+      openLangDropdown();
+    }
+  });
+
+  document.querySelectorAll('.lang-option').forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      applyLanguage(opt.getAttribute('data-lang'));
+      closeLangDropdown();
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!document.getElementById('langSwitcher').contains(e.target)) {
+      closeLangDropdown();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeLangDropdown();
+  });
+
+  /* ─────────────────────────────────────────────
+     4. NAVBAR SCROLL EFFECT
+     ───────────────────────────────────────────── */
+
+  var navbar = document.getElementById('navbar');
+
+  window.addEventListener('scroll', function () {
+    navbar.classList.toggle('scrolled', window.scrollY > 50);
+  }, { passive: true });
+
+  /* ─────────────────────────────────────────────
+     5. URL-BASED LANGUAGE DETECTION
+     ───────────────────────────────────────────── */
+
+  function detectLangFromURL() {
+    // Check URL hash first: /#/ar or /#/en or #ar or #en
+    var hash = window.location.hash.toLowerCase();
+    if (hash === '#/ar' || hash === '#ar') return 'ar';
+    if (hash === '#/en' || hash === '#en') return 'en';
+
+    // Check pathname: /ar or /en (for server-side rewrites)
+    var path = window.location.pathname.toLowerCase().replace(/\/$/, '');
+    if (path === '/ar' || path.endsWith('/ar')) return 'ar';
+    if (path === '/en' || path.endsWith('/en')) return 'en';
+
+    // Fallback to localStorage
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === 'ar' || saved === 'en') return saved;
+    } catch (e) {}
+
+    return 'en';
+  }
+
+  // Listen for hash changes so back/forward browser navigation works too
+  window.addEventListener('hashchange', function () {
+    var hash = window.location.hash.toLowerCase();
+    if (hash === '#/ar' || hash === '#ar') {
+      applyLanguage('ar');
+    } else if (hash === '#/en' || hash === '#en') {
+      applyLanguage('en');
+    }
+  });
+
+  /* ─────────────────────────────────────────────
+     6. INIT
+     ───────────────────────────────────────────── */
+
+  var initialLang = detectLangFromURL();
+  applyLanguage(initialLang);
+  restartReviewScroll();
+
+})();
   </script>
 
   <!-- Your existing JS file for any other functionality -->
