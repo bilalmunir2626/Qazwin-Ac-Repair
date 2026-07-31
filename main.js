@@ -1,13 +1,23 @@
 /**
  * QAZWIN AC REPAIR KUWAIT — main.js
  * Pure Vanilla JavaScript (no frameworks)
- * Features:
- *  - Navbar scroll effect & active link highlighting
- *  - Mobile hamburger menu
- *  - Smooth scroll
- *  - Scroll reveal animations
- *  - Draggable reviews slider
- *  - Ticker pause on hover
+ *
+ * Loads AFTER lang-router.js. Ownership split:
+ *   lang-router.js  -> language system, URL/hash routing, smooth scroll
+ *   main.js         -> navbar state, hamburger, reveal, slider, ticker, misc
+ *
+ * CHANGELOG (this revision)
+ *  - REMOVED initSmoothScroll(): its e.preventDefault() cancelled the browser's
+ *    hash navigation, which is why the URL never updated. lang-router.js now
+ *    owns anchor clicks and writes the URL with history.pushState().
+ *  - Ticker no longer clones itself on every resize event (DOM growth + it
+ *    reverted cloned items to English while in Arabic mode).
+ *  - Lazy-load no longer targets the above-the-fold logo (was hurting LCP).
+ *  - .review-card removed from scroll-reveal: cards sitting outside the
+ *    viewport inside the carousel never fired the observer and stayed at
+ *    opacity 0 as they slid into view.
+ *  - Reveal stagger capped so late items don't wait ~2s to appear.
+ *  - Active-link selector no longer matches header#navbar.
  */
 
 'use strict';
@@ -16,40 +26,43 @@
    1. NAVBAR — Scroll effect & active state
    ============================================= */
 (function initNavbar() {
-  const navbar    = document.getElementById('navbar');
-  const navLinks  = document.querySelectorAll('.nav-link');
-  const sections  = document.querySelectorAll('main section[id], header[id]');
+  const navbar   = document.getElementById('navbar');
+  const navLinks = document.querySelectorAll('.nav-link, .mob-link');
+  // FIX: was 'main section[id], header[id]' — header[id] matched #navbar itself
+  const sections = document.querySelectorAll('main section[id]');
 
-  // Add "scrolled" class for shadow
-  function onScroll() {
-    if (window.scrollY > 40) {
-      navbar.classList.add('scrolled');
-    } else {
-      navbar.classList.remove('scrolled');
-    }
-    highlightActiveLink();
-  }
+  if (!navbar) return;
 
-  // Highlight nav link matching visible section
+  let ticking = false;
+
   function highlightActiveLink() {
     let current = '';
+    const line = navbar.offsetHeight + 30;
+
     sections.forEach(section => {
-      const sectionTop = section.offsetTop - 100;
-      if (window.scrollY >= sectionTop) {
-        current = section.getAttribute('id');
-      }
+      const r = section.getBoundingClientRect();
+      if (r.top <= line) current = section.getAttribute('id');
     });
 
     navLinks.forEach(link => {
-      link.classList.remove('active');
       const href = link.getAttribute('href');
-      if (href && href === '#' + current) {
-        link.classList.add('active');
-      }
+      link.classList.toggle('active', !!current && href === '#' + current);
     });
   }
 
-  window.addEventListener('scroll', onScroll, { passive: true });
+  function onScroll() {
+    ticking = false;
+    navbar.classList.toggle('scrolled', window.scrollY > 40);
+    highlightActiveLink();
+  }
+
+  window.addEventListener('scroll', function () {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(onScroll);
+    }
+  }, { passive: true });
+
   onScroll(); // run once on load
 })();
 
@@ -60,6 +73,7 @@
 (function initHamburger() {
   const hamburger  = document.getElementById('hamburger');
   const mobileMenu = document.getElementById('mobileMenu');
+  // Hash links are closed by lang-router.js; these are the tel:/wa.me ones
   const mobLinks   = document.querySelectorAll('.mob-link, .mob-cta a');
 
   if (!hamburger || !mobileMenu) return;
@@ -71,56 +85,57 @@
     mobileMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
 
-  hamburger.addEventListener('click', () => {
-    const isOpen = mobileMenu.classList.contains('open');
-    toggleMenu(!isOpen);
+  hamburger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMenu(!mobileMenu.classList.contains('open'));
   });
 
-  // Close on link click
   mobLinks.forEach(link => {
     link.addEventListener('click', () => toggleMenu(false));
   });
 
-  // Close on outside click
   document.addEventListener('click', (e) => {
     if (!hamburger.contains(e.target) && !mobileMenu.contains(e.target)) {
       toggleMenu(false);
     }
   });
+
+  // Close on Escape for keyboard users
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') toggleMenu(false);
+  });
 })();
 
 
 /* =============================================
-   3. SMOOTH SCROLL — anchor links
+   3. SMOOTH SCROLL — REMOVED
+   ---------------------------------------------
+   This block used to live here:
+
+     e.preventDefault();
+     window.scrollTo({ top: targetTop, behavior: 'smooth' });
+
+   preventDefault() cancelled the browser's hash navigation and nothing
+   wrote the URL back, so clicking "Why Us" scrolled but left the address
+   bar unchanged. lang-router.js now handles anchor clicks, applies the
+   navbar offset, and calls history.pushState().
+
+   DO NOT re-add a second smooth-scroll handler here — two of them fight
+   over window.scrollTo and cause visible jitter.
    ============================================= */
-(function initSmoothScroll() {
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-      const href = this.getAttribute('href');
-      if (href === '#') return;
-      const target = document.querySelector(href);
-      if (!target) return;
-      e.preventDefault();
-
-      const navHeight = document.getElementById('navbar').offsetHeight;
-      const targetTop = target.getBoundingClientRect().top + window.pageYOffset - navHeight;
-
-      window.scrollTo({ top: targetTop, behavior: 'smooth' });
-    });
-  });
-})();
 
 
 /* =============================================
    4. SCROLL REVEAL — fade-in on scroll
    ============================================= */
 (function initScrollReveal() {
-  // Add reveal class to elements
+  // NOTE: .review-card intentionally excluded — those cards live inside a
+  // transform-driven carousel, so off-screen ones never trigger the observer
+  // and would stay permanently invisible as they slide in.
   const revealTargets = [
     '.service-card',
     '.why-item',
     '.step-card',
-    '.review-card',
     '.stat-item',
     '.section-header',
     '.contact-box',
@@ -128,10 +143,14 @@
     '.footer-col',
   ];
 
+  // Respect users who asked for reduced motion
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
   revealTargets.forEach(selector => {
     document.querySelectorAll(selector).forEach((el, i) => {
       el.classList.add('reveal');
-      el.style.transitionDelay = (i * 0.08) + 's';
+      // FIX: cap the stagger so the 12th card isn't waiting ~1s
+      el.style.transitionDelay = (Math.min(i, 5) * 0.08) + 's';
     });
   });
 
@@ -153,41 +172,52 @@
 
 /* =============================================
    5. REVIEWS SLIDER — drag to scroll
+   ---------------------------------------------
+   This is the ONLY thing animating the carousel now. The old inline
+   script in index.html was also driving it via wrap.scrollLeft, so the
+   two were fighting every frame. Make sure .reviews-scroll-wrap uses
+   style="direction:ltr; overflow:hidden;" — with overflow-x:auto you
+   get a stray scrollbar under the transform.
    ============================================= */
 (function initReviewsSlider() {
   const track = document.getElementById('reviewsTrack');
   if (!track) return;
 
-  const wrap       = track.parentElement;
-  const speed      = 0.5;   // px per frame — increase for faster scroll
-  let   position   = 0;
-  let   isPaused   = false;
-  let   isDragging = false;
-  let   dragStartX = 0;
-  let   dragStartPos = 0;
-  let   rafId      = null;
+  const wrap = track.parentElement;
+  if (!wrap) return;
 
-  // Half = width of original 5 cards + their gaps
-  // We reset when we've scrolled exactly one full set
+  const speed = 0.5;   // px per frame
+  let position     = 0;
+  let isPaused     = false;
+  let isDragging   = false;
+  let dragStartX   = 0;
+  let dragStartPos = 0;
+  let rafId        = null;
+
   function getHalfWidth() {
     return track.scrollWidth / 2;
   }
 
-  // Core animation loop
   function tick() {
     if (!isPaused && !isDragging) {
       position += speed;
-      // When we've scrolled through exactly the first set, jump back seamlessly
-      if (position >= getHalfWidth()) {
-        position -= getHalfWidth();
-      }
+      if (position >= getHalfWidth()) position -= getHalfWidth();
       track.style.transform = `translateX(${-position}px)`;
     }
     rafId = requestAnimationFrame(tick);
   }
 
-  // Start
   rafId = requestAnimationFrame(tick);
+
+  // Stop burning frames when the tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+    } else if (!rafId) {
+      rafId = requestAnimationFrame(tick);
+    }
+  });
 
   // ── Pause on hover ──
   wrap.addEventListener('mouseenter', () => { isPaused = true; });
@@ -205,10 +235,8 @@
 
   window.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-    const delta = dragStartX - e.clientX;
-    position = dragStartPos + delta;
+    position = dragStartPos + (dragStartX - e.clientX);
 
-    // Keep in bounds
     const half = getHalfWidth();
     if (position < 0)     position += half;
     if (position >= half) position -= half;
@@ -234,8 +262,7 @@
   }, { passive: true });
 
   wrap.addEventListener('touchmove', (e) => {
-    const delta = touchStartX - e.touches[0].clientX;
-    position = touchStartPos + delta;
+    position = touchStartPos + (touchStartX - e.touches[0].clientX);
 
     const half = getHalfWidth();
     if (position < 0)     position += half;
@@ -244,37 +271,50 @@
     track.style.transform = `translateX(${-position}px)`;
   }, { passive: true });
 
-  wrap.addEventListener('touchend', () => {
-    isPaused = false;
-  });
-
+  wrap.addEventListener('touchend', () => { isPaused = false; });
 })();
 
 
 /* =============================================
-   6. TICKER — ensure seamless loop
+   6. TICKER — seamless loop
+   ---------------------------------------------
+   FIX: the old version ran on every resize event and did
+   track.innerHTML += clone each time. On a phone rotation or a desktop
+   window drag that fires dozens of times and keeps growing the DOM.
+   It also re-inserted the English text while the page was in Arabic,
+   because the clones bypassed applyLanguage().
    ============================================= */
 (function initTicker() {
-  // The ticker duplication is already done in HTML
-  // This just ensures it works on very wide screens
   const track = document.querySelector('.ticker-track');
-  if (!track) return;
+  const wrap  = document.querySelector('.ticker-wrap');
+  if (!track || !wrap) return;
 
-  // Calculate if we need more copies
+  const MAX_CLONES = 2;
+  let clones = 0;
+
   function ensureEnoughContent() {
-    const wrapWidth = document.querySelector('.ticker-wrap').offsetWidth;
-    const trackWidth = track.scrollWidth;
+    while (clones < MAX_CLONES && track.scrollWidth < wrap.offsetWidth * 2) {
+      track.insertAdjacentHTML('beforeend', track.innerHTML);
+      clones++;
+    }
 
-    // We need at least 2x the viewport width
-    if (trackWidth < wrapWidth * 2) {
-      // Clone existing content and append
-      const clone = track.innerHTML;
-      track.innerHTML += clone;
+    // Re-translate the freshly cloned nodes if we're in Arabic
+    if (clones > 0 && typeof window.qazwinApplyLanguage === 'function') {
+      window.qazwinApplyLanguage(
+        document.documentElement.getAttribute('lang') === 'ar' ? 'ar' : 'en'
+      );
     }
   }
 
   ensureEnoughContent();
-  window.addEventListener('resize', ensureEnoughContent, { passive: true });
+
+  // Debounced, and it stops calling once MAX_CLONES is reached
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (clones >= MAX_CLONES) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(ensureEnoughContent, 200);
+  }, { passive: true });
 })();
 
 
@@ -282,74 +322,53 @@
    7. LOGO FALLBACK — show letter if no image
    ============================================= */
 (function initLogoFallback() {
+  function showFallback(img) {
+    img.style.display = 'none';
+    const fallback = img.parentElement && img.parentElement.querySelector('.logo-fallback');
+    if (fallback) fallback.style.display = 'flex';
+  }
+
   document.querySelectorAll('.logo-img').forEach(img => {
-    // Check if already failed
-    if (!img.complete || img.naturalWidth === 0) {
-      img.style.display = 'none';
-      const fallback = img.parentElement.querySelector('.logo-fallback');
-      if (fallback) fallback.style.display = 'flex';
-    }
-    img.addEventListener('error', function () {
-      this.style.display = 'none';
-      const fallback = this.parentElement.querySelector('.logo-fallback');
-      if (fallback) fallback.style.display = 'flex';
-    });
+    if (img.complete && img.naturalWidth === 0) showFallback(img);
+    img.addEventListener('error', function () { showFallback(this); });
   });
 })();
 
 
 /* =============================================
-   8. PHONE NUMBER — format display (optional)
-   ============================================= */
-(function initPhoneLinks() {
-  // Ensure all phone links are clickable on mobile
-  document.querySelectorAll('a[href="tel:97904179"]').forEach(link => {
-    link.addEventListener('click', (e) => {
-      // On desktop, prevent default (optional — leave it as-is to allow dial)
-      // This is intentionally left to allow native call behavior
-    });
-  });
-})();
-
-
-/* =============================================
-   9. PERFORMANCE — lazy load images
+   8. PERFORMANCE — lazy load images
+   ---------------------------------------------
+   FIX: the old selector included .logo-img, which sits above the fold
+   in the navbar. Lazy-loading an above-the-fold image delays LCP.
    ============================================= */
 (function initLazyLoad() {
   if ('loading' in HTMLImageElement.prototype) {
-    // Browser supports native lazy loading
-    document.querySelectorAll('img:not([loading])').forEach(img => {
-      img.setAttribute('loading', 'lazy');
-    });
-  } else {
-    // Fallback: IntersectionObserver
-    const imgObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const img = entry.target;
-          if (img.dataset.src) {
-            img.src = img.dataset.src;
-          }
-          imgObserver.unobserve(img);
-        }
-      });
-    });
-    document.querySelectorAll('img[data-src]').forEach(img => {
-      imgObserver.observe(img);
-    });
+    document
+      .querySelectorAll('img:not([loading]):not(.logo-img)')
+      .forEach(img => img.setAttribute('loading', 'lazy'));
+    return;
   }
+
+  const imgObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const img = entry.target;
+      if (img.dataset.src) img.src = img.dataset.src;
+      imgObserver.unobserve(img);
+    });
+  });
+
+  document.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
 })();
 
 
 /* =============================================
-   10. ACTIVE SECTION INDICATOR
-       (highlight navbar on page load too)
+   9. CONSOLE BRANDING
+   ---------------------------------------------
+   The old section 8 (initPhoneLinks) was removed — it attached an empty
+   click listener to every tel: link and did nothing.
    ============================================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // Trigger scroll event to set initial active state
-  window.dispatchEvent(new Event('scroll'));
-
-  // Console branding
   console.log(
     '%c🇰🇼 Qazwin AC Repair Kuwait %c— Built with ❄️',
     'color:#42A5F5;font-size:14px;font-weight:bold;',
